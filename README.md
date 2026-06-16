@@ -1,8 +1,12 @@
-# MakoCode — 茉子版Agent
+# MakoCode — 茉子版 Agent
 
 <p align="center">
-  <strong>一个自带完整 Galgame 界面的桌面 AI 伴侣</strong><br>
+  <strong>一个自带完整 Galgame 界面的桌面 AI Agent</strong><br>
   以《千恋＊万花》常陆茉子为主题形象，封装 Claude Code CLI 为沉浸式视觉小说体验
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/main-menu.png" alt="MakoCode 主界面" width="700">
 </p>
 
 <p align="center">
@@ -69,6 +73,24 @@
 ### 🔄 自动更新
 - 应用内检查更新 + 后台下载
 - NSIS 静默安装，无需手动重装
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/main-menu.png" alt="Galgame 风格主菜单" width="400">
+  <img src="assets/screenshots/setup-wizard.png" alt="首次配置向导（含茉子头像对话气泡）" width="400">
+  <br>
+  <img src="assets/screenshots/api-config.png" alt="API 配置界面" width="400">
+  <img src="assets/screenshots/preset-modal.png" alt="LLM 供应商预设弹窗" width="400">
+  <br>
+  <img src="assets/screenshots/settings-panel.png" alt="系统设置面板" width="400">
+  <img src="assets/screenshots/character-editor.png" alt="修改茉子人设界面" width="400">
+</p>
+<p align="center">
+  <em>主菜单 ｜ 向导（含头像） ｜ API 配置 ｜ 供应商预设 ｜ 系统设置 ｜ 人设编辑</em>
+</p>
 
 ---
 
