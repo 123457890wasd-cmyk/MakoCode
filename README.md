@@ -13,7 +13,6 @@
   <a href="#-features">✨ 功能</a> •
   <a href="#-quick-start">🚀 快速开始</a> •
   <a href="#-installation">📦 安装</a> •
-  <a href="#-screenshots">📸 截图</a> •
   <a href="#-tech-stack">🔧 技术栈</a> •
   <a href="#-license">📄 协议</a>
 </p>
@@ -30,6 +29,10 @@
 - **樱花粒子**：35 片花瓣永远飘落，随机大小/速度/旋转
 - **思考气泡**：AI 思考时弹出茉子风格俏皮话气泡
 - **打字机效果**：逐字显示 + Markdown 渲染 + KaTeX 公式支持
+
+<p align="center">
+  <img src="assets/screenshots/chat.png" alt="茉子对话界面，AI 实时聊天" width="700">
+</p>
 
 ### 🗣️ 语音系统
 - 30 条预生成问候语音（GPT-SoVITS TTS）
@@ -52,16 +55,29 @@
 | 🌙 Kimi | `moonshot` |
 | 🔵 百度千帆 | `qianfan` |
 
+<p align="center">
+  <img src="assets/screenshots/preset-modal.png" alt="LLM 供应商预设弹窗，一键填充 API 配置" width="500">
+</p>
+
 ### 🧙 首次配置向导
 - 自动检测 Node.js / Git / Claude Code 安装状态
 - 一键后台静默安装（内含 Node.js + Git 安装包）
 - API 配置 + 连接测试
 - 供应商预设弹窗一键填充
 
+<p align="center">
+  <img src="assets/screenshots/setup-wizard.png" alt="茉子对话气泡引导安装" width="400">
+  <img src="assets/screenshots/api-config.png" alt="API 地址/Key/模型配置界面" width="400">
+</p>
+
 ### ✏️ 角色定制
 - 内置人设 Markdown 编辑器（主设定 + 世界观双标签）
 - 支持修改角色性格、说话风格、世界观背景
 - 保存后新会话生效
+
+<p align="center">
+  <img src="assets/screenshots/character-editor.png" alt="修改茉子人设的 Markdown 编辑器界面" width="700">
+</p>
 
 ### 📂 新手友好
 - 设置面板一键打开 Skills / 插件文件夹
@@ -70,29 +86,13 @@
 - 输入框自动扩展（多行支持）
 - 存档系统（自动 + 手动 + 多槽位）
 
+<p align="center">
+  <img src="assets/screenshots/settings-panel.png" alt="系统设置面板，含AI模型/环境变量/文件夹快捷方式/人设编辑" width="700">
+</p>
+
 ### 🔄 自动更新
 - 应用内检查更新 + 后台下载
 - NSIS 静默安装，无需手动重装
-
----
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="assets/screenshots/main-menu.png" alt="Galgame 风格主菜单" width="400">
-  <img src="assets/screenshots/chat.png" alt="茉子对话界面，AI 实时聊天" width="400">
-  <br>
-  <img src="assets/screenshots/setup-wizard.png" alt="首次配置向导（含茉子头像对话气泡）" width="400">
-  <img src="assets/screenshots/api-config.png" alt="API 配置界面" width="400">
-  <br>
-  <img src="assets/screenshots/preset-modal.png" alt="LLM 供应商预设弹窗（9家供应商）" width="400">
-  <img src="assets/screenshots/settings-panel.png" alt="系统设置面板" width="400">
-  <br>
-  <img src="assets/screenshots/character-editor.png" alt="修改茉子人设界面" width="400">
-</p>
-<p align="center">
-  <em>主菜单 ｜ 聊天对话 ｜ 向导 ｜ API 配置 ｜ 供应商预设 ｜ 系统设置 ｜ 人设编辑</em>
-</p>
 
 ---
 
