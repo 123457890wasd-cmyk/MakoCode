@@ -964,6 +964,24 @@ function streamChat(res, prompt, sessionId, allowedTools, permissionMode) {
             writeLine(res, { type: "gallm_question", data: question });
           }
         }
+
+        // 检测 assistant 消息中的 tool_use — 捕获工具调用权限请求
+        if (msg.type === 'assistant' && msg.message?.content && Array.isArray(msg.message.content)) {
+          for (const block of msg.message.content) {
+            if (block.type === 'tool_use') {
+              const question = detectQuestion({
+                type: 'assistant',
+                message: { type: 'tool_use', name: block.name }
+              });
+              if (question) {
+                const entry = pendingQuestions.get(qId);
+                if (entry) entry.question = question;
+                writeLine(res, { type: "gallm_question", data: question });
+                break; // 只处理第一个 tool_use
+              }
+            }
+          }
+        }
       } catch {
         log(`Non-JSON: ${trimmed.substring(0, 200)}`);
         writeLine(res, { type: "raw", data: trimmed });
