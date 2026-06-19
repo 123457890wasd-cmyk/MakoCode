@@ -17,6 +17,10 @@
   <a href="#-license">📄 协议</a>
 </p>
 
+<p align="center">
+  <img src="https://count.getloli.com/@makocode?theme=gelbooru&padding=7&scale=1&num=152" alt="visitors">
+</p>
+
 ---
 
 ## ✨ Features
