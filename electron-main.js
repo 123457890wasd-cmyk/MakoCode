@@ -528,16 +528,21 @@ function setupAutoUpdater() {
     }
   }
 
-  // 配置更新服务器 URL（可通过环境变量 MAKO_UPDATE_URL 覆盖）
-  // 默认从 package.json build.publish.url 读取，保证与 electron-builder 配置一致
-  const updateUrl = process.env.MAKO_UPDATE_URL || (() => {
+  // 配置更新服务器（可通过环境变量 MAKO_UPDATE_URL 覆盖为自定义 URL）
+  // 默认从 package.json build.publish 读取 provider 配置，保证与 electron-builder 一致
+  const feedConfig = process.env.MAKO_UPDATE_URL || (() => {
     try {
       const pkgPath = path.join(__dirname, 'package.json');
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      return pkg.build?.publish?.url || 'https://github.com/123457890wasd-cmyk/MakoCode/releases/download';
-    } catch { return 'https://github.com/123457890wasd-cmyk/MakoCode/releases/download'; }
+      const publish = pkg.build?.publish;
+      // github provider 需要传完整对象，generic provider 传 url 字符串
+      if (publish && publish.provider === 'github') {
+        return { provider: 'github', owner: publish.owner, repo: publish.repo };
+      }
+      return publish?.url || 'https://github.com/123457890wasd-cmyk/MakoCode/releases/download';
+    } catch { return { provider: 'github', owner: '123457890wasd-cmyk', repo: 'MakoCode' }; }
   })();
-  autoUpdater.setFeedURL(updateUrl);
+  autoUpdater.setFeedURL(feedConfig);
 
   autoUpdater.autoDownload = true;   // 后台自动下载
   autoUpdater.autoInstallOnAppQuit = false; // 让用户手动点安装
