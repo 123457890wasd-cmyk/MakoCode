@@ -534,8 +534,8 @@ function setupAutoUpdater() {
     try {
       const pkgPath = path.join(__dirname, 'package.json');
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      return pkg.build?.publish?.url || 'https://github.com/liebaojun/MakoCode/releases/download';
-    } catch { return 'https://github.com/liebaojun/MakoCode/releases/download'; }
+      return pkg.build?.publish?.url || 'https://github.com/123457890wasd-cmyk/MakoCode/releases/download';
+    } catch { return 'https://github.com/123457890wasd-cmyk/MakoCode/releases/download'; }
   })();
   autoUpdater.setFeedURL(updateUrl);
 
