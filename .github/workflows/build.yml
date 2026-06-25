@@ -38,8 +38,8 @@ jobs:
       - name: Upload to Release
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          gh release create $tag dist/*.exe dist/*.blockmap dist/*.yml --title "MakoCode $tag" --notes "Auto-built from tag $tag." --draft=false --prerelease=false --repo ${{ github.repository }}
+          $tag = if ("${{ github.event.inputs.version }}") { "${{ github.event.inputs.version }}" } else { "${{ github.ref_name }}" }
+          gh release create $tag dist/*.exe dist/*.blockmap dist/*.yml --title "MakoCode $tag" --notes "Auto-built from tag $tag." --draft=false --prerelease=false --latest --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
