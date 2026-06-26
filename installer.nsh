@@ -92,23 +92,23 @@
   ; 如果用户选择了全部删除，saves/uploads/voice-data 已被 customUnInstall 清理
   ; 如果选择了保留，这些目录仍然存在，下面的循环会跳过它们
   FindFirst $0 $1 "$INSTDIR\*.*"
-  loop:
-    StrCmp $1 "" done
-    StrCmp $1 "." next
-    StrCmp $1 ".." next
-    StrCmp $1 "saves" next
-    StrCmp $1 "uploads" next
-    StrCmp $1 "voice-data" next
-    StrCmp $1 "uninstall.exe" next
-    IfFileExists "$INSTDIR\$1\*" 0 removeFile
+  rmf_loop:
+    StrCmp $1 "" rmf_done
+    StrCmp $1 "." rmf_next
+    StrCmp $1 ".." rmf_next
+    StrCmp $1 "saves" rmf_next
+    StrCmp $1 "uploads" rmf_next
+    StrCmp $1 "voice-data" rmf_next
+    StrCmp $1 "uninstall.exe" rmf_next
+    IfFileExists "$INSTDIR\$1\*" 0 rmf_removeFile
       RMDir /r "$INSTDIR\$1"
-      Goto next
-    removeFile:
+      Goto rmf_next
+    rmf_removeFile:
       Delete "$INSTDIR\$1"
-    next:
+    rmf_next:
     FindNext $0 $1
-    Goto loop
-  done:
+    Goto rmf_loop
+  rmf_done:
   FindClose $0
 
   ; 尝试删除安装目录（仅在为空时成功）
