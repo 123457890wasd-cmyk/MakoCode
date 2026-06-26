@@ -219,6 +219,113 @@ function isFirstRun() {
   }
 }
 
+// ─── 用户配置备份与恢复 ─────────────────────────────
+// 将 mako-settings.json / CLAUDE.md / .claude/ 备份到 %APPDATA%/MakoCode/
+// 确保更新、换目录重装后用户配置不丢失
+
+function getUserBackupDir() {
+  return path.join(app.getPath('userData'), 'config-backup');
+}
+
+/**
+ * 启动时从 %APPDATA% 恢复用户配置到安装目录
+ * - mako-settings.json：仅当安装目录中缺失时恢复
+ * - CLAUDE.md：始终从备份恢复（安装器会用默认版本覆盖）
+ * - .claude/：仅当安装目录中缺失时恢复
+ * 必须在 startServer() 之前调用
+ */
+function restoreUserConfig() {
+  const backupDir = getUserBackupDir();
+  if (!fs.existsSync(backupDir)) return;
+
+  // mako-settings.json — 安装目录缺失时从备份恢复
+  const settingsSrc = path.join(backupDir, 'mako-settings.json');
+  const settingsDst = path.join(APP_DIR, 'mako-settings.json');
+  if (!fs.existsSync(settingsDst) && fs.existsSync(settingsSrc)) {
+    try {
+      fs.copyFileSync(settingsSrc, settingsDst);
+      log('Config: restored mako-settings.json from backup');
+    } catch (e) {
+      log(`Config: failed to restore mako-settings.json: ${e.message}`);
+    }
+  }
+
+  // CLAUDE.md — 始终从备份恢复（防止更新覆盖用户自定义人设）
+  const personaSrc = path.join(backupDir, 'CLAUDE.md');
+  const personaDst = path.join(APP_DIR, 'CLAUDE.md');
+  if (fs.existsSync(personaSrc)) {
+    try {
+      fs.copyFileSync(personaSrc, personaDst);
+      log('Config: restored CLAUDE.md from backup');
+    } catch (e) {
+      log(`Config: failed to restore CLAUDE.md: ${e.message}`);
+    }
+  }
+
+  // .claude/ 目录 — 安装目录缺失时从备份恢复
+  const claudeDirSrc = path.join(backupDir, '.claude');
+  const claudeDirDst = path.join(APP_DIR, '.claude');
+  if (!fs.existsSync(claudeDirDst) && fs.existsSync(claudeDirSrc)) {
+    try {
+      copyDirRecursive(claudeDirSrc, claudeDirDst);
+      log('Config: restored .claude/ directory from backup');
+    } catch (e) {
+      log(`Config: failed to restore .claude/: ${e.message}`);
+    }
+  }
+}
+
+/**
+ * 退出时将用户配置备份到 %APPDATA%
+ * 同步执行，保证 before-quit 期间完成
+ */
+function backupUserConfig() {
+  try {
+    const backupDir = getUserBackupDir();
+    fs.mkdirSync(backupDir, { recursive: true });
+
+    // mako-settings.json
+    const settingsSrc = path.join(APP_DIR, 'mako-settings.json');
+    if (fs.existsSync(settingsSrc)) {
+      fs.copyFileSync(settingsSrc, path.join(backupDir, 'mako-settings.json'));
+    }
+
+    // CLAUDE.md
+    const personaSrc = path.join(APP_DIR, 'CLAUDE.md');
+    if (fs.existsSync(personaSrc)) {
+      fs.copyFileSync(personaSrc, path.join(backupDir, 'CLAUDE.md'));
+    }
+
+    // .claude/ 目录
+    const claudeDirSrc = path.join(APP_DIR, '.claude');
+    if (fs.existsSync(claudeDirSrc)) {
+      const claudeDirDst = path.join(backupDir, '.claude');
+      if (fs.existsSync(claudeDirDst)) {
+        fs.rmSync(claudeDirDst, { recursive: true, force: true });
+      }
+      copyDirRecursive(claudeDirSrc, claudeDirDst);
+    }
+
+    log('Config: backup completed');
+  } catch (e) {
+    log(`Config: backup failed: ${e.message}`);
+  }
+}
+
+/** 递归复制目录 */
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // ─── 创建窗口 ────────────────────────────────────────
 function createWindow(firstRun = false) {
   const preloadPath = path.join(__dirname, 'preload.js');
@@ -652,6 +759,9 @@ ipcMain.handle('install-update', async () => {
 app.whenReady().then(async () => {
   log('MakoCode starting...');
 
+  // 从 %APPDATA% 恢复用户配置（防止更新/重装导致配置丢失）
+  restoreUserConfig();
+
   try {
     await startServer();
   } catch (err) {
@@ -704,6 +814,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   if (updateTimer) clearTimeout(updateTimer);
   if (updateInterval) clearInterval(updateInterval);
+  // 退出前备份用户配置到 %APPDATA%
+  backupUserConfig();
   // 如果有已下载但未安装的更新，退出时自动安装
   if (updateStatus.state === 'downloaded' && autoUpdater) {
     killServerProc(); // 先杀子进程，避免文件锁导致 NSIS 安装失败
