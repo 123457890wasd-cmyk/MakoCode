@@ -219,6 +219,113 @@ function isFirstRun() {
   }
 }
 
+// ─── 用户配置备份与恢复 ─────────────────────────────
+// 将 mako-settings.json / CLAUDE.md / .claude/ 备份到 %APPDATA%/MakoCode/
+// 确保更新、换目录重装后用户配置不丢失
+
+function getUserBackupDir() {
+  return path.join(app.getPath('userData'), 'config-backup');
+}
+
+/**
+ * 启动时从 %APPDATA% 恢复用户配置到安装目录
+ * - mako-settings.json：仅当安装目录中缺失时恢复
+ * - CLAUDE.md：始终从备份恢复（安装器会用默认版本覆盖）
+ * - .claude/：仅当安装目录中缺失时恢复
+ * 必须在 startServer() 之前调用
+ */
+function restoreUserConfig() {
+  const backupDir = getUserBackupDir();
+  if (!fs.existsSync(backupDir)) return;
+
+  // mako-settings.json — 安装目录缺失时从备份恢复
+  const settingsSrc = path.join(backupDir, 'mako-settings.json');
+  const settingsDst = path.join(APP_DIR, 'mako-settings.json');
+  if (!fs.existsSync(settingsDst) && fs.existsSync(settingsSrc)) {
+    try {
+      fs.copyFileSync(settingsSrc, settingsDst);
+      log('Config: restored mako-settings.json from backup');
+    } catch (e) {
+      log(`Config: failed to restore mako-settings.json: ${e.message}`);
+    }
+  }
+
+  // CLAUDE.md — 始终从备份恢复（防止更新覆盖用户自定义人设）
+  const personaSrc = path.join(backupDir, 'CLAUDE.md');
+  const personaDst = path.join(APP_DIR, 'CLAUDE.md');
+  if (fs.existsSync(personaSrc)) {
+    try {
+      fs.copyFileSync(personaSrc, personaDst);
+      log('Config: restored CLAUDE.md from backup');
+    } catch (e) {
+      log(`Config: failed to restore CLAUDE.md: ${e.message}`);
+    }
+  }
+
+  // .claude/ 目录 — 安装目录缺失时从备份恢复
+  const claudeDirSrc = path.join(backupDir, '.claude');
+  const claudeDirDst = path.join(APP_DIR, '.claude');
+  if (!fs.existsSync(claudeDirDst) && fs.existsSync(claudeDirSrc)) {
+    try {
+      copyDirRecursive(claudeDirSrc, claudeDirDst);
+      log('Config: restored .claude/ directory from backup');
+    } catch (e) {
+      log(`Config: failed to restore .claude/: ${e.message}`);
+    }
+  }
+}
+
+/**
+ * 退出时将用户配置备份到 %APPDATA%
+ * 同步执行，保证 before-quit 期间完成
+ */
+function backupUserConfig() {
+  try {
+    const backupDir = getUserBackupDir();
+    fs.mkdirSync(backupDir, { recursive: true });
+
+    // mako-settings.json
+    const settingsSrc = path.join(APP_DIR, 'mako-settings.json');
+    if (fs.existsSync(settingsSrc)) {
+      fs.copyFileSync(settingsSrc, path.join(backupDir, 'mako-settings.json'));
+    }
+
+    // CLAUDE.md
+    const personaSrc = path.join(APP_DIR, 'CLAUDE.md');
+    if (fs.existsSync(personaSrc)) {
+      fs.copyFileSync(personaSrc, path.join(backupDir, 'CLAUDE.md'));
+    }
+
+    // .claude/ 目录
+    const claudeDirSrc = path.join(APP_DIR, '.claude');
+    if (fs.existsSync(claudeDirSrc)) {
+      const claudeDirDst = path.join(backupDir, '.claude');
+      if (fs.existsSync(claudeDirDst)) {
+        fs.rmSync(claudeDirDst, { recursive: true, force: true });
+      }
+      copyDirRecursive(claudeDirSrc, claudeDirDst);
+    }
+
+    log('Config: backup completed');
+  } catch (e) {
+    log(`Config: backup failed: ${e.message}`);
+  }
+}
+
+/** 递归复制目录 */
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // ─── 创建窗口 ────────────────────────────────────────
 function createWindow(firstRun = false) {
   const preloadPath = path.join(__dirname, 'preload.js');
@@ -505,12 +612,21 @@ let updateStatus = {
   progress: 0,           // 0-100
   error: null,
 };
+let updateTimer = null;
+let updateInterval = null;
+let lastStatusWrite = 0;
+let lastWrittenState = null;
 
 function sendUpdateStatus() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-status', updateStatus);
   }
-  // 同时写入文件，供 server.js 的 /api/update/status 读取
+  // 节流写盘：状态变更立即写，下载进度最多每 500ms 写一次
+  const now = Date.now();
+  const stateChanged = updateStatus.state !== lastWrittenState;
+  if (!stateChanged && now - lastStatusWrite < 500) return;
+  lastStatusWrite = now;
+  lastWrittenState = updateStatus.state;
   try {
     const statusFile = path.join(APP_DIR, '.update-status.json');
     fs.writeFileSync(statusFile, JSON.stringify(updateStatus), 'utf8');
@@ -528,16 +644,26 @@ function setupAutoUpdater() {
     }
   }
 
-  // 配置更新服务器 URL（可通过环境变量 MAKO_UPDATE_URL 覆盖）
-  // 默认从 package.json build.publish.url 读取，保证与 electron-builder 配置一致
-  const updateUrl = process.env.MAKO_UPDATE_URL || (() => {
+  // 配置更新服务器（可通过环境变量 MAKO_UPDATE_URL 覆盖）
+  // 优先使用 package.json build.publish，其次依赖 electron-builder 生成的 app-update.yml
+  const feedConfig = process.env.MAKO_UPDATE_URL || (() => {
     try {
       const pkgPath = path.join(__dirname, 'package.json');
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      return pkg.build?.publish?.url || 'https://github.com/liebaojun/MakoCode/releases/download';
-    } catch { return 'https://github.com/liebaojun/MakoCode/releases/download'; }
+      const publish = pkg.build?.publish;
+      if (publish && publish.provider === 'github') {
+        return { provider: 'github', owner: publish.owner, repo: publish.repo };
+      }
+      if (publish && publish.provider === 'generic' && publish.url) {
+        return publish.url;
+      }
+      // build.publish 缺失（打包后被剥离）→ 不覆盖，让 electron-updater 读取 app-update.yml
+      return undefined;
+    } catch { return undefined; }
   })();
-  autoUpdater.setFeedURL(updateUrl);
+  if (feedConfig) {
+    autoUpdater.setFeedURL(feedConfig);
+  }
 
   autoUpdater.autoDownload = true;   // 后台自动下载
   autoUpdater.autoInstallOnAppQuit = false; // 让用户手动点安装
@@ -621,7 +747,7 @@ ipcMain.handle('install-update', async () => {
   }
   try {
     // quitAndInstall 会退出应用、运行 NSIS 静默安装、再重启
-    autoUpdater.quitAndInstall(false, true);
+    autoUpdater.quitAndInstall(true, true);
     return { ok: true };
   } catch (err) {
     log(`Auto-update: install failed: ${err.message}`);
@@ -632,6 +758,9 @@ ipcMain.handle('install-update', async () => {
 // ─── 应用生命周期 ────────────────────────────────────
 app.whenReady().then(async () => {
   log('MakoCode starting...');
+
+  // 从 %APPDATA% 恢复用户配置（防止更新/重装导致配置丢失）
+  restoreUserConfig();
 
   try {
     await startServer();
@@ -654,16 +783,16 @@ app.whenReady().then(async () => {
   // 初始化自动更新（非首次运行时）
   if (!firstRun) {
     setupAutoUpdater();
-    // 启动后延迟 3 秒检查更新，优先让主界面加载
-    setTimeout(() => {
+    // 启动后延迟检查更新，优先让主界面加载
+    updateTimer = setTimeout(() => {
       if (!autoUpdater) return;
       autoUpdater.checkForUpdates().catch((err) => {
         log(`Auto-update: initial check failed: ${err.message}`);
       });
-    }, 3000);
+    }, UPDATE_CHECK_DELAY_MS);
 
-    // 每 4 小时自动检查一次
-    setInterval(() => {
+    // 定期自动检查更新
+    updateInterval = setInterval(() => {
       if (!autoUpdater) return;
       autoUpdater.checkForUpdates().catch((err) => {
         log(`Auto-update: periodic check failed: ${err.message}`);
@@ -683,6 +812,20 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (updateTimer) clearTimeout(updateTimer);
+  if (updateInterval) clearInterval(updateInterval);
+  // 退出前备份用户配置到 %APPDATA%
+  backupUserConfig();
+  // 如果有已下载但未安装的更新，退出时自动安装
+  if (updateStatus.state === 'downloaded' && autoUpdater) {
+    killServerProc(); // 先杀子进程，避免文件锁导致 NSIS 安装失败
+    try {
+      autoUpdater.quitAndInstall(true, true);
+      return; // quitAndInstall 会接管退出流程
+    } catch (err) {
+      log(`Auto-update: quitAndInstall failed: ${err.message}`);
+    }
+  }
   killServerProc();
 });
 
