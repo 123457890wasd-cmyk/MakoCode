@@ -121,13 +121,19 @@
 
   ; Step 2: 尝试删除 resources\app\（仅在为空时成功）
   RMDir "$INSTDIR\resources\app"
-  ; Step 3: 删除 resources\ 下剩余文件（elevate.exe 等），失败也无妨
-  RMDir /r "$INSTDIR\resources"
+
+  ; Step 3: 精确清理 resources\ 下的非 app 文件
+  ; 注意：不能用 RMDir /r resources，否则会连带删除 resources/app/ 中保留的用户数据
+  Delete "$INSTDIR\resources\app-update.yml"
+  Delete "$INSTDIR\resources\app.asar"
+  Delete "$INSTDIR\resources\elevate.exe"
+  ; 尝试删除 resources\（仅在为空时成功，有保留数据则保留此目录）
+  RMDir "$INSTDIR\resources"
 
   ; Step 4: 删除 locales 目录
   RMDir /r "$INSTDIR\locales"
 
-  ; Step 5: 清理安装根目录，跳过 uninstaller 和用户数据目录
+  ; Step 5: 清理安装根目录，跳过 uninstaller、用户数据目录和 resources（已由 Step 3 处理）
   ; （根目录下的 saves/uploads/voice-data 是安装器创建的空壳，无实际数据）
   FindFirst $0 $1 "$INSTDIR\*.*"
   rmf_root_loop:
@@ -138,6 +144,7 @@
     StrCmp $1 "uploads" rmf_root_next
     StrCmp $1 "voice-data" rmf_root_next
     StrCmp $1 "uninstall.exe" rmf_root_next
+    StrCmp $1 "resources" rmf_root_next
     IfFileExists "$INSTDIR\$1\*" 0 rmf_root_removeFile
       RMDir /r "$INSTDIR\$1"
       Goto rmf_root_next
